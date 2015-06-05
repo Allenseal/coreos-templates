@@ -1,0 +1,30 @@
+[Unit]
+Description=ssbox-postgresql on port %i
+# Dependency ordering and binding
+After=docker.service
+After=etcd.service
+Requires=docker.service
+Requires=etcd.service
+
+[Service]
+EnvironmentFile=/etc/environment
+User=core
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill ssbox-postgresql.%i
+ExecStartPre=-/usr/bin/docker rm ssbox-postgresql.%i
+ExecStartPre=-/usr/bin/docker pull ssbox-postgresql-taipei
+ExecStart=/bin/sh -c 'docker run --name ssbox-postgresql.%i -p ${COREOS_PRIVATE_IPV4}:%i:5432 -v /home/core/ssbox/postgresql-data:/data -e DB=ssbox ssbox-postgresql-taipei'
+ExecStartPost=/bin/sh -c 'echo Waiting for ssbox postgresql on %i/tcp...'
+ExecStartPost=/usr/bin/etcdctl set /service/ssbox-postgresql/postgresql01 ${COREOS_PRIVATE_IPV4}:%i
+ExecStop=/usr/bin/docker stop ssbox-postgresql.%i
+ExecStopPost=-/usr/bin/docker rm -f ssbox-postgresql.%i
+ExecStopPost=/usr/bin/etcdctl rm /service/ssbox-postgresql/postgresql01
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+[X-Fleet]
+Conflicts=ssbox-postgresql@*.service
+MachineMetadata="postgresql=true"

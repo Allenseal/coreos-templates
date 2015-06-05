@@ -1,0 +1,39 @@
+[Unit]
+Description=Nginx load balancer for web server backends
+
+# Requirements
+Requires=etcd.service
+Requires=docker.service
+
+# Dependency ordering and binding
+After=docker.service
+After=etcd.service
+After=ssbox-server@*.service
+
+[Service]
+# Let the process take awhile to start up (for first run Docker containers)
+TimeoutStartSec=0
+
+# Change killmode from "control-group" to "none" to let Docker remove
+# work correctly.
+KillMode=none
+
+# Get CoreOS environmental variables
+EnvironmentFile=/etc/environment
+User=core
+
+# Pre-start and Start
+## Directives with "=-" are allowed to fail without consequence
+ExecStartPre=-/usr/bin/docker kill ssbox-nginx
+ExecStartPre=-/usr/bin/docker rm ssbox-nginx
+ExecStartPre=-/usr/bin/docker pull ssbox-nginx
+ExecStart=/usr/bin/docker run --name ssbox-nginx -v /proc:/writable-proc -v /home/core/ssbox/nginx-logs:/var/log/nginx -v /var/lib/deis/store/ssbox/storage:/storage -v /home/core/ssbox/nginx-conf:/etc/nginx/conf.d -p ${COREOS_PUBLIC_IPV4}:443:443 ssbox-nginx /usr/local/bin/confd-watch
+ExecStartPost=/usr/bin/etcdctl set /service/ssbox-nginx/${COREOS_PRIVATE_IPV4}:443 ${COREOS_PRIVATE_IPV4}:443
+ExecStop=/usr/bin/docker stop ssbox-nginx
+ExecStopPost=-/usr/bin/docker rm -f ssbox-nginx
+ExecStopPost=/usr/bin/etcdctl rm /service/ssbox-nginx/${COREOS_PRIVATE_IPV4}:443
+Restart=on-failure
+RestartSec=5
+
+[X-Fleet]
+MachineMetadata="net-ip=public" "nginx=true"

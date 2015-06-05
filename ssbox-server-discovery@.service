@@ -1,0 +1,31 @@
+[Unit]
+Description=ssbox server on port %i etcd registration
+
+# Dependency ordering and binding
+After=ssbox-server@%i.service
+BindsTo=ssbox-server@%i.service
+
+[Service]
+
+# Get CoreOS environmental variables
+EnvironmentFile=/etc/environment
+
+# Start
+## Test whether service is accessible and then register useful information
+ExecStart=/bin/bash -c '\
+  while true; do \
+    curl -f ${COREOS_PRIVATE_IPV4}:%i/api/unicloud/info; \
+    if [ $? -eq 0 ]; then \
+      etcdctl set /service/ssbox-server/${COREOS_PRIVATE_IPV4}:%i \'${COREOS_PRIVATE_IPV4}:%i\' --ttl 30; \
+    else \
+      etcdctl rm /service/ssbox-server/${COREOS_PRIVATE_IPV4}:%i; \
+    fi; \
+    sleep 20; \
+  done'
+
+# Stop
+ExecStop=/usr/bin/etcdctl rm /service/ssbox-server/${COREOS_PRIVATE_IPV4}:%i
+
+[X-Fleet]
+# Schedule on the same machine as the associated SSBox service
+MachineOf=ssbox-server@%i.service

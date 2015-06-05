@@ -1,0 +1,64 @@
+#cloud-config
+
+hostname: test01
+
+coreos:
+  etcd:
+    name: test01
+    # change by https://discovery.etcd.io/new
+    discovery: https://discovery.etcd.io/1234567890
+    addr: 192.168.0.64:4001
+    peer-addr: 192.168.0.64:7001
+    # give etcd more time if it's under heavy load - prevent leader election thrashing
+    peer-election-timeout: 2000
+    # heartbeat interval should ideally be 1/4 or 1/5 of peer election timeout
+    peer-heartbeat-interval: 500
+  fleet:
+    public-ip: 192.168.0.64
+    metadata: net-ip=public,machine-id=01,machine-group=58
+    # allow etcd to slow down at times
+    etcd_request_timeout: 3.0
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+    - name: static.network
+      content: |
+        [Match]
+        Name=enp2s0f0
+
+        [Network]
+        Address=140.114.71.64/24
+        Gateway=140.114.71.254
+        Address=192.168.0.64/24
+        Gateway=192.168.0.254
+        DNS=8.8.8.8
+        DNS=8.8.4.4
+
+users:
+  - name: core
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABkm;lewQD0nyLCDR022hq2G7AvEETFOa6Mj2WPfYO57iLQ66K3eozKv0UWKdlSd59qNoDYjihHdJMdRszyNz9TA125ZhrV0MLsg7C2+/gndV8VG8wjiQd0pzsBYmvTIzBQFRZzgXzlgO8imGAp/i5BA3GGloESk41pHK1ZIag9gh2vQpkus4bAGw0v4g1QSFzKhCQsEe/8DckLAdimxnxVj6OZNgaT6iXDcfx417bv2/L7dW54th4QVD+/jIwR40pPBMrIn98kgIElbB+pQTre4QBrC/su0+NAZiewo2optHG/ynBuZxnrSN+Uuh5LuDQv4390KLSAwmEOSdqeyHjV2Wh02xPeyp+RzTlcPcl allens2013@sslab.cs.nthu.edu.tw
+    passwd: $1$6nCU6s08$P9i12DJbrBABVQNcZv5pi0
+  - groups:
+      - sudo
+      - docker
+
+write_files:
+    - path: /home/core/.dockercfg
+      owner: core:core
+      permissions: 0644
+      content: |
+        {
+            "https://registry.test.com": {
+                "auth": "YWxsZW46YWxsZW4x12moMTY=",
+                "email": ""
+            }
+        }
+    - path: /etc/environment
+      permissions: 0644
+      content: |
+        COREOS_PUBLIC_IPV4=140.114.71.64
+        COREOS_PRIVATE_IPV4=192.168.0.64
+        CORE_USER=core

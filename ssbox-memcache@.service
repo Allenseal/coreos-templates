@@ -1,0 +1,30 @@
+[Unit]
+Description=ssbox memcache on port %i etcd registration
+# Dependency ordering and binding
+After=docker.service
+After=etcd.service
+Requires=docker.service
+Requires=etcd.service
+
+[Service]
+EnvironmentFile=/etc/environment
+User=core
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill ssbox-memcache.%i
+ExecStartPre=-/usr/bin/docker rm ssbox-memcache.%i
+ExecStartPre=-/bin/sh -c 'docker pull memcached'
+ExecStart=/bin/sh -c 'docker run --name ssbox-memcache.%i -p ${COREOS_PRIVATE_IPV4}:%i:11211 memcached'
+ExecStartPost=/bin/sh -c 'echo Waiting for ssbox memcache on %i/tcp...'
+ExecStartPost=/usr/bin/etcdctl set /service/ssbox-memcache/${COREOS_PRIVATE_IPV4}:%i ${COREOS_PRIVATE_IPV4}:%i
+ExecStop=/usr/bin/docker stop ssbox-memcache.%i
+ExecStopPost=-/usr/bin/docker rm -f ssbox-memcache.%i
+ExecStopPost=/usr/bin/etcdctl rm /service/ssbox-memcache/${COREOS_PRIVATE_IPV4}:%i
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+[X-Fleet]
+Conflicts=ssbox-memcache@*.service
+MachineMetadata="server=true"

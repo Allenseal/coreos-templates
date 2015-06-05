@@ -1,0 +1,140 @@
+#!/bin/bash
+usage="$(basename "$0") [start|stop] [-h] [-s script_name] [-c num] [-n boolean] -- start or stop ssbox-server service with fleetctl CLI tool
+where:
+    -h  show this help text
+    -c  number of container  (default: 1)
+    -n  if start nginx service (default: false)
+    -s  set service script name. it will be appended by \@{port:3001~}.service (default: ssbox-server)"    
+    
+script_name=ssbox-server
+container=1
+nginx=false
+
+start_server () {
+    echo "> Submit Service"
+    
+    service_script="$script_name"\@.service
+    echo ">>>> $service_script"
+    # command="fleetctl submit $service_script"
+    # echo $command
+    fleetctl submit $service_script
+    
+    echo "> Start Service"
+    for((i=3001;i<3001+$container;i++))
+    do
+        service="$script_name"\@"$i".service
+        echo ">>>> $service"
+        # command="fleetctl start $service"
+        # echo $command
+        fleetctl start $service
+    done
+    
+    if [ "$nginx" = true ]; then
+        echo ">>>> ssbox-nginx.service"
+        # command="fleetctl start ssbox-nginx.service"
+        # echo $command
+        fleetctl start ssbox-nginx.service
+    fi
+
+    echo "Done!!"
+}
+
+stop_server () {
+    echo "> Stop Service"
+    if [ "$nginx" = true ]; then
+        echo ">>>> ssbox-nginx.service"
+        # command="fleetctl stop ssbox-nginx.service"
+        # echo $command
+        fleetctl stop ssbox-nginx.service
+    fi
+    
+    for((i=3001;i<3001+$container;i++))
+    do
+        service="$script_name"\@"$i".service
+        echo ">>>> $service"
+        # command="fleetctl stop $service"
+        # echo $command
+        fleetctl stop $service
+    done
+    
+    echo "> Destroy Service"
+    if [ "$nginx" = true ]; then
+        echo ">>>> ssbox-nginx.service"
+        # command="fleetctl destroy ssbox-nginx.service"
+        # echo $command
+        fleetctl destroy ssbox-nginx.service
+    fi
+ 
+    for((i=3001;i<3001+$container;i++))
+    do
+        service="$script_name"\@"$i".service
+        echo ">>>> $service"
+        # command="fleetctl destroy $service"
+        # echo $command
+        fleetctl destroy $service
+    done
+    
+    echo "Done!!"
+}
+
+case "$1" in
+    start)
+        shift
+        while getopts ':hc:s:n:' option; do
+          case "$option" in
+            h) echo "$usage"
+               exit
+               ;;
+            c) container=$OPTARG
+               ;;
+            n) nginx=$OPTARG
+               ;;
+            s) script_name=$OPTARG
+               ;;
+            :) printf "missing argument for -%s\n" "$OPTARG" >&2
+               echo "$usage" >&2
+               exit 1
+               ;;
+           \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+               echo "$usage" >&2
+               exit 1
+               ;;
+          esac
+        done
+        shift $((OPTIND - 1))  
+        start_server   
+        ;;
+    stop)
+        shift
+        while getopts ':hc:s:n:' option; do
+          case "$option" in
+            h) echo "$usage"
+               exit
+               ;;
+            c) container=$OPTARG
+               ;;
+            s) script_name=$OPTARG
+               ;;
+            n) nginx=$OPTARG
+               ;;
+            :) printf "missing argument for -%s\n" "$OPTARG" >&2
+               echo "$usage" >&2
+               exit 1
+               ;;
+           \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+               echo "$usage" >&2
+               exit 1
+               ;;
+          esac
+        done
+        shift $((OPTIND - 1))  
+        stop_server   
+        ;;
+esac
+
+
+
+
+
+
+

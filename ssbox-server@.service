@@ -1,0 +1,33 @@
+[Unit]
+Description=ssbox-server on port %i
+# Dependency ordering and binding
+After=docker.service
+After=etcd.service
+After=ssbox-postgresql@*.service
+After=ssbox-memcache@*.service
+Requires=docker.service
+Requires=etcd.service
+
+
+[Service]
+EnvironmentFile=/etc/environment
+User=core
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill ssbox-server.%i
+ExecStartPre=-/usr/bin/docker rm ssbox-server.%i
+ExecStartPre=-/usr/bin/docker pull ssbox-server
+ExecStart=/bin/sh -c 'docker run --name ssbox-server.%i -e USE_ETCD=true -e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} -v /var/lib/deis/store/ssbox/storage:/storage  -v /home/core/ssbox/server.%i-logs:/ssbox-server/logs -v /proc:/writable-proc -p ${COREOS_PRIVATE_IPV4}:%i:3001 ssbox-server'
+ExecStartPost=/bin/sh -c 'echo Waiting for ssbox server on %i/tcp...'
+ExecStartPost=/usr/bin/etcdctl set /service/ssbox-server/${COREOS_PRIVATE_IPV4}:%i ${COREOS_PRIVATE_IPV4}:%i
+ExecStop=/usr/bin/docker stop ssbox-server.%i
+ExecStopPost=-/usr/bin/docker rm -f ssbox-server.%i
+ExecStopPost=/usr/bin/etcdctl rm /service/ssbox-server/${COREOS_PRIVATE_IPV4}:%i
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+[X-Fleet]
+#Conflicts=ssbox-server@*.service
+MachineMetadata="server=true"
