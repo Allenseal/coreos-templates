@@ -11,8 +11,31 @@ container=1
 nginx=false
 
 start_server () {
-    echo "> Submit Service"
+
+    echo "> Destroy Service"
+    if [ "$nginx" = true ]; then
+        echo ">>>> ssbox-nginx.service"
+        # command="fleetctl destroy ssbox-nginx.service"
+        # echo $command
+        fleetctl destroy ssbox-nginx.service
+    fi
     
+    for((i=3001;i<3001+$container;i++))
+    do
+        service="$script_name"\@"$i".service
+        echo ">>>> $service"
+        # command="fleetctl destroy $service"
+        # echo $command
+        fleetctl destroy $service
+    done
+
+    service_script="$script_name"\@.service
+    echo ">>>> $service_script"
+    # command="fleetctl destroy $service_script"
+    # echo $command
+    fleetctl destroy $service_script
+
+    echo "> Submit Service"    
     service_script="$script_name"\@.service
     echo ">>>> $service_script"
     # command="fleetctl submit $service_script"
@@ -55,23 +78,6 @@ stop_server () {
         # command="fleetctl stop $service"
         # echo $command
         fleetctl stop $service
-    done
-    
-    echo "> Destroy Service"
-    if [ "$nginx" = true ]; then
-        echo ">>>> ssbox-nginx.service"
-        # command="fleetctl destroy ssbox-nginx.service"
-        # echo $command
-        fleetctl destroy ssbox-nginx.service
-    fi
- 
-    for((i=3001;i<3001+$container;i++))
-    do
-        service="$script_name"\@"$i".service
-        echo ">>>> $service"
-        # command="fleetctl destroy $service"
-        # echo $command
-        fleetctl destroy $service
     done
     
     echo "Done!!"
